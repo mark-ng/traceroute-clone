@@ -2,6 +2,7 @@ import sys
 import socket
 import struct
 import random
+import time
 
 def parse_icmp(b):
     # Skip IP Header
@@ -21,11 +22,10 @@ def traceroute(domain, max_ttl):
     is_over = False
 
     # Loop until the Type change from 'Time-to-live exceeded' to 'Echo (ping) reply'
-    # TODO: Measure the time take for each hoop
     while True:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        sock.settimeout(1)
+        sock.settimeout(5)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
 
         # ICMP Header
@@ -46,21 +46,23 @@ def traceroute(domain, max_ttl):
 
             # Construct ICMP Header
             b = struct.pack("!BBHHH", type, code, checksum, identifier, sequence_number)
-
+            
+            t = time.time()
             sock.sendto(b + data, (ip, 80))
 
             try:
                 content, (responding_ip, responding_port) = sock.recvfrom(2000)
+                rtt = (time.time() - t) * 1000
                 name, _ = socket.getnameinfo((responding_ip, responding_port), 0)
 
                 return_type, return_code = parse_icmp(content)
                 # Echo (ping) reply
                 if return_type == 0 and return_code == 0 and i == 2:
-                    print(f"{name} ({responding_ip})")
+                    print(f"{name} ({responding_ip}) {rtt:.3f} ms")
                     is_over = True
                     break
                 else:
-                    print(f"{name} ({responding_ip})")
+                    print(f"{name} ({responding_ip}) {rtt:.3f} ms")
             except socket.timeout:
                 print("*")
                 continue
