@@ -3,6 +3,11 @@ import socket
 import struct
 import random
 
+def parse_icmp(b):
+    # Skip IP Header
+    type, code = struct.unpack("!BB", b[20:22])
+    return type, code
+
 def cal_checksum(type, code, identifier, sequence_number, data):
     data_sum = sum(struct.unpack("!24H", data))
     return (struct.unpack("!H", struct.pack("!BB", type, code))[0] + 0 + identifier + \
@@ -13,16 +18,14 @@ def traceroute(domain, max_ttl):
     print(f"traceroute to {domain} ({ip}), {max_ttl} hops max")
 
     ttl = 1
+    is_over = False
 
     # Loop until the Type change from 'Time-to-live exceeded' to 'Echo (ping) reply'
+    # TODO: Bug 3 samples from the same address
     while True:
 
-        # TODO: For debug
-        if ttl == 20:
-            break
-
         sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        sock.settimeout(3)
+        sock.settimeout(2)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
 
         # ICMP Header
@@ -47,11 +50,23 @@ def traceroute(domain, max_ttl):
 
             try:
                 content, from_addr = sock.recvfrom(2000)
+                return_type, return_code = parse_icmp(content)
+                # Echo (ping) reply
+                if return_type == 0 and return_code == 0 and i == 2:
+                    print(f"{ttl} ({from_addr[0]})")
+                    is_over = True
+                    break
             except socket.timeout:
-                print("*", end = " ", flush=True)
+                if i == 2:
+                    print("*", flush=True)
+                else:
+                    print("*", end = " ", flush=True)
                 continue
             else:
                 print(f"{ttl} ({from_addr[0]})")
+
+        if is_over:
+            break
 
         print()
         ttl += 1
