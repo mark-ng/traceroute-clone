@@ -17,3 +17,8 @@ This is a simple traceroute clone used for study purposes. It uses Python and th
 ```bash
 sudo python3 traceroute.py <destination>
 ```
+
+## Reference
+
+- [RFC 792: Internet Control Message Protocol](https://www.rfc-editor.org/rfc/rfc792)
+- [ip(7) man page](https://man7.org/linux/man-pages/man7/ip.7.html)
