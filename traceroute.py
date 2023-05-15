@@ -21,11 +21,11 @@ def traceroute(domain, max_ttl):
     is_over = False
 
     # Loop until the Type change from 'Time-to-live exceeded' to 'Echo (ping) reply'
-    # TODO: Bug 3 samples from the same address
+    # TODO: Measure the time take for each hoop
     while True:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        sock.settimeout(2)
+        sock.settimeout(1)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
 
         # ICMP Header
@@ -36,6 +36,7 @@ def traceroute(domain, max_ttl):
 
         # Genereate 3 sample
         for i in range(3):
+            sys.stdout.write(f'{ttl:>2} ')
             # ICMP Data
             random_data = [int(random.uniform(1, 1000)) for i in range(12)]
             data = struct.pack("!12I", *random_data)
@@ -49,25 +50,22 @@ def traceroute(domain, max_ttl):
             sock.sendto(b + data, (ip, 80))
 
             try:
-                content, from_addr = sock.recvfrom(2000)
+                content, (responding_ip, responding_port) = sock.recvfrom(2000)
+                name, _ = socket.getnameinfo((responding_ip, responding_port), 0)
+
                 return_type, return_code = parse_icmp(content)
                 # Echo (ping) reply
                 if return_type == 0 and return_code == 0 and i == 2:
-                    print(f"{ttl} ({from_addr[0]})")
+                    print(f"{name} ({responding_ip})")
                     is_over = True
                     break
-            except socket.timeout:
-                if i == 2:
-                    print("*", flush=True)
                 else:
-                    print("*", end = " ", flush=True)
+                    print(f"{name} ({responding_ip})")
+            except socket.timeout:
+                print("*")
                 continue
-            else:
-                print(f"{ttl} ({from_addr[0]})")
-
         if is_over:
             break
-
         print()
         ttl += 1
 
